@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SysDoctor | Diagnóstico, limpeza e manutenção para Windows</title>
+  <meta name="description" content="SysDoctor centraliza ferramentas de diagnóstico, limpeza, reparo e manutenção do Windows em uma interface prática para usuários, técnicos e equipes de suporte.">
+  <link rel="canonical" href="https://github.com/Bert00100/SysDoctor">
+  <meta property="og:title" content="SysDoctor | Diagnóstico e manutenção para Windows">
+  <meta property="og:description" content="Diagnostique, limpe, repare e organize a manutenção do Windows com uma central de ferramentas prática e responsável.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="src/img/logo_sem_fundo.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="SysDoctor | Ferramentas para manutenção do Windows">
+  <meta name="twitter:description" content="Uma central para diagnóstico do Windows, limpeza, rede, segurança e configuração pós-formatação.">
+  <link rel="icon" href="src/img/ico_sysdoctor.ico">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "SysDoctor",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Windows 10 ou superior",
+      "softwareRequirements": ".NET 10.0 ou superior; PowerShell 5.1 ou superior; ambiente win-x64",
+      "programmingLanguage": "C#",
+      "description": "Aplicativo de console para diagnóstico, limpeza, manutenção e otimização assistida de computadores Windows."
+    }
+  </script>
+  <style>
+    /* Reset */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 92px; }
+    body, h1, h2, h3, p, ul, ol, figure { margin: 0; }
+    ul, ol { padding: 0; list-style: none; }
+    img, svg { display: block; max-width: 100%; }
+    button, input, select, textarea { font: inherit; }
+    button { border: 0; cursor: pointer; }
+
+    /* Design Tokens */
+    :root {
+      --color-background: #090d22;
+      --color-surface: #0d122b;
+      --color-surface-elevated: #111831;
+      --color-surface-soft: #161d38;
+      --color-text: #ffffff;
+      --color-text-muted: #aab0c5;
+      --color-text-soft: #dde1ec;
+      --color-border: rgba(255, 255, 255, 0.12);
+      --color-border-strong: rgba(255, 255, 255, 0.22);
+      --color-success: #69db9c;
+      --color-warning: #ffd166;
+      --color-danger: #ff7a90;
+      --color-info: #8eb7ff;
+      --container-width: 1200px;
+      --radius-small: 10px;
+      --radius-medium: 18px;
+      --radius-large: 28px;
+      --shadow-soft: 0 18px 60px rgba(0, 0, 0, 0.28);
+      --transition-default: 180ms ease;
+      --font-main: "Satoshi", "Inter", "Segoe UI", Arial, sans-serif;
+      --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    }
+
+    /* Base */
+    body {
+      min-width: 320px;
+      color: var(--color-text);
+      background:
+        radial-gradient(circle at 72% 4%, rgba(255, 255, 255, 0.08), transparent 24rem),
+        linear-gradient(180deg, #090d22 0%, #0a0f25 44%, #090d22 100%);
+      font-family: var(--font-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    body.menu-open { overflow: hidden; }
+
+    a { color: inherit; text-decoration: none; }
+    p { color: var(--color-text-muted); }
+    section { position: relative; padding: clamp(4rem, 8vw, 7.5rem) 0; }
+    .container { width: min(var(--container-width), calc(100% - 40px)); margin-inline: auto; }
+    .section-header { max-width: 760px; margin-bottom: clamp(2rem, 4vw, 3.5rem); }
+    .compat-header { margin-top: clamp(3rem, 6vw, 5rem); }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      width: fit-content;
+      margin-bottom: 1rem;
+      color: var(--color-text-soft);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 0.65rem;
+      height: 0.65rem;
+      border-radius: 999px;
+      background: var(--color-success);
+      box-shadow: 0 0 0 6px rgba(105, 219, 156, 0.1);
+    }
+
+    /* Typography */
+    h1, h2, h3 { color: var(--color-text); line-height: 1.05; letter-spacing: 0; }
+    h1 { max-width: 980px; font-size: clamp(2.45rem, 6vw, 5.8rem); font-weight: 900; }
+    h2 { font-size: clamp(2rem, 4vw, 3.65rem); font-weight: 900; }
+    h3 { font-size: clamp(1.1rem, 2vw, 1.45rem); font-weight: 800; }
+    .lead { max-width: 720px; font-size: clamp(1.05rem, 1.7vw, 1.25rem); color: var(--color-text-soft); }
+    .mono { font-family: var(--font-mono); }
+
+    /* Layout */
+    .grid { display: grid; gap: 1rem; }
+    .two-col { grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr); align-items: center; gap: clamp(2rem, 6vw, 5rem); }
+    .surface {
+      border: 1px solid var(--color-border);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025));
+      box-shadow: var(--shadow-soft);
+    }
+
+    /* Components */
+    .btn {
+      display: inline-flex;
+      min-height: 46px;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      border-radius: 999px;
+      padding: 0.85rem 1.15rem;
+      font-weight: 800;
+      transition: transform var(--transition-default), border-color var(--transition-default), background var(--transition-default);
+    }
+    .btn-primary { color: #090d22; background: #ffffff; }
+    .btn-secondary { border: 1px solid var(--color-border-strong); color: var(--color-text); background: rgba(255, 255, 255, 0.04); }
+    .btn:hover { transform: translateY(-2px); }
+    .btn svg { width: 1.05rem; height: 1.05rem; }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      padding: 0.42rem 0.7rem;
+      color: var(--color-text-soft);
+      background: rgba(255, 255, 255, 0.045);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+    .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--color-info); }
+    .dot.success { background: var(--color-success); }
+    .dot.warning { background: var(--color-warning); }
+    .dot.danger { background: var(--color-danger); }
+
+    /* Header */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(9, 13, 34, 0.82);
+      backdrop-filter: blur(18px);
+    }
+    .nav-wrap {
+      display: flex;
+      min-height: 76px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand { display: inline-flex; align-items: center; gap: 0.7rem; min-width: max-content; }
+    .brand img { width: 100%; height: 100%; object-fit: contain; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 234px;
+      height: 64px;
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .nav-links { display: flex; align-items: center; justify-content: center; gap: clamp(0.5rem, 1.7vw, 1.4rem); }
+    .nav-links a {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      color: var(--color-text-muted);
+      font-weight: 700;
+      font-size: 0.93rem;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--color-text); }
+    .nav-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .menu-toggle {
+      display: none;
+      width: 46px;
+      height: 46px;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      color: var(--color-text);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .menu-toggle span, .menu-toggle::before, .menu-toggle::after {
+      content: "";
+      display: block;
+      width: 18px;
+      height: 2px;
+      margin: 4px auto;
+      border-radius: 999px;
+      background: currentColor;
+      transition: transform var(--transition-default), opacity var(--transition-default);
+    }
+    .menu-toggle[aria-expanded="true"] span { opacity: 0; }
+    .menu-toggle[aria-expanded="true"]::before { transform: translateY(6px) rotate(45deg); }
+    .menu-toggle[aria-expanded="true"]::after { transform: translateY(-6px) rotate(-45deg); }
+
+    /* Hero */
+    .hero { padding-top: clamp(3.5rem, 7vw, 6.5rem); }
+    .hero::before, .problems::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+      background-size: 54px 54px;
+      mask-image: linear-gradient(to bottom, black, transparent 75%);
+    }
+    .hero-content { position: relative; z-index: 1; }
+    .hero-copy { display: grid; gap: 1.35rem; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 0.85rem; margin-top: 0.35rem; }
+    .compat-row { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-top: 0.4rem; }
+    .console-preview {
+      position: relative;
+      min-width: 0;
+      border-radius: var(--radius-large);
+      overflow: hidden;
+      background: #0b1028;
+    }
+    .console-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      border-bottom: 1px solid var(--color-border);
+      padding: 1rem;
+      color: var(--color-text-soft);
+      font-size: 0.82rem;
+    }
+    .window-dots { display: flex; gap: 0.45rem; }
+    .window-dots span { width: 0.72rem; height: 0.72rem; border-radius: 50%; background: rgba(255,255,255,0.28); }
+    .console-body { padding: clamp(1rem, 2.4vw, 1.4rem); }
+    .terminal-line {
+      display: flex;
+      gap: 0.65rem;
+      color: var(--color-text-soft);
+      font-family: var(--font-mono);
+      font-size: clamp(0.72rem, 1.4vw, 0.86rem);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .terminal-line + .terminal-line { margin-top: 0.6rem; }
+    .prompt { color: var(--color-success); }
+    .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 1.2rem; }
+    .metric-card {
+      min-height: 104px;
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.045);
+    }
+    .metric-label { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; color: var(--color-text-muted); font-size: 0.84rem; }
+    .metric-value { margin-top: 0.65rem; color: var(--color-text); font-size: 1.04rem; font-weight: 850; }
+    .meter { height: 7px; margin-top: 0.8rem; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, 0.1); }
+    .meter span { display: block; height: 100%; border-radius: inherit; background: var(--color-text); }
+    .preview-note {
+      margin-top: 1rem;
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      padding: 0.85rem;
+      color: var(--color-text-muted);
+      background: rgba(255, 255, 255, 0.035);
+      font-size: 0.85rem;
+    }
+
+    /* Sections */
+    .problems-grid {
+      grid-template-columns: 1.15fr 0.85fr 1fr;
+      grid-auto-rows: minmax(190px, auto);
+    }
+    .problem-card, .feature-group, .step-card, .impact-panel, .contact-panel {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-medium);
+      padding: clamp(1.1rem, 2vw, 1.4rem);
+      background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+    }
+    .problem-card.large { grid-row: span 2; }
+    .problem-card.wide { grid-column: span 2; }
+    .card-icon {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      margin-bottom: 1.1rem;
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      color: var(--color-text);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .card-icon svg { width: 22px; height: 22px; }
+    .problem-card p, .feature-group p, .step-card p { margin-top: 0.65rem; font-size: 0.96rem; }
+    .card-tag { margin-top: 1rem; }
+
+    .impact-layout { grid-template-columns: 0.92fr 1.08fr; align-items: stretch; gap: 1rem; }
+    .impact-panel { display: grid; align-content: space-between; min-height: 430px; }
+    .impact-list { display: grid; gap: 0.8rem; }
+    .impact-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      align-items: start;
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.035);
+    }
+    .impact-item strong { display: block; margin-bottom: 0.18rem; color: var(--color-text); }
+    .impact-item p { font-size: 0.94rem; }
+    .impact-number {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      color: #090d22;
+      background: var(--color-text);
+      font-weight: 900;
+    }
+    .quote-band {
+      display: grid;
+      gap: 1rem;
+      align-content: end;
+      min-height: 100%;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-large);
+      padding: clamp(1.4rem, 4vw, 2.4rem);
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.018)),
+        #0d122b;
+    }
+    .quote-band p { max-width: 650px; color: var(--color-text-soft); font-size: clamp(1.35rem, 3vw, 2.45rem); line-height: 1.15; font-weight: 850; }
+
+    .workflow { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .step-card { position: relative; overflow: hidden; min-height: 210px; }
+    .step-card::after {
+      content: attr(data-step);
+      position: absolute;
+      right: 1rem;
+      bottom: -0.75rem;
+      color: rgba(255, 255, 255, 0.07);
+      font-size: 5rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .solution-panel {
+      margin-top: 1.2rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-large);
+      padding: clamp(1rem, 2.5vw, 1.5rem);
+      background: #0b1028;
+    }
+    .menu-sim { display: grid; gap: 0.65rem; }
+    .menu-sim li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      padding: 0.85rem 1rem;
+      background: rgba(255,255,255,0.035);
+    }
+    .menu-sim strong { font-size: 0.94rem; }
+    .menu-sim span { color: var(--color-text-muted); font-size: 0.86rem; }
+
+    .features-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .feature-list { display: grid; gap: 0.75rem; margin-top: 1.1rem; }
+    .feature-list li {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.65rem;
+      color: var(--color-text-soft);
+      font-size: 0.94rem;
+    }
+    .check {
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border: 1px solid var(--color-border-strong);
+      border-radius: 50%;
+      color: #090d22;
+      background: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 900;
+    }
+    .compatibility {
+      margin-top: 1rem;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .compat-card {
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      padding: 1rem;
+      background: rgba(255,255,255,0.035);
+    }
+    .compat-card strong { display: block; color: var(--color-text); }
+    .compat-card span { color: var(--color-text-muted); font-size: 0.9rem; }
+    .permission-note {
+      margin-top: 1rem;
+      border: 1px solid var(--color-border-strong);
+      border-radius: 18px;
+      padding: 1rem;
+      color: var(--color-text-soft);
+      background: rgba(255,255,255,0.045);
+    }
+
+    /* Forms */
+    .contact { padding-bottom: clamp(4rem, 7vw, 6rem); }
+    .contact-layout { grid-template-columns: 0.82fr 1.18fr; align-items: start; gap: 1rem; }
+    .contact-panel { border-radius: var(--radius-large); }
+    .contact-points { display: grid; gap: 0.75rem; margin-top: 1.25rem; }
+    .contact-points li { display: flex; gap: 0.65rem; color: var(--color-text-soft); }
+    .repo-card {
+      display: grid;
+      gap: 0.85rem;
+      margin-top: 1.25rem;
+      border: 1px solid var(--color-border-strong);
+      border-radius: 18px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.055);
+    }
+    .repo-card strong { color: var(--color-text); font-size: 1.02rem; }
+    .repo-url {
+      overflow-wrap: anywhere;
+      color: var(--color-text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+    }
+    .repo-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .repo-download-panel { display: grid; gap: 1rem; align-content: start; }
+    .repo-download-panel h3 { font-size: clamp(1.45rem, 2.6vw, 2.25rem); }
+    .repo-steps { display: grid; gap: 0.75rem; margin: 0.25rem 0; }
+    .repo-steps div {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      align-items: center;
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      padding: 0.9rem;
+      color: var(--color-text-soft);
+      background: rgba(255, 255, 255, 0.035);
+    }
+    .repo-steps strong {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      color: #090d22;
+      background: var(--color-text);
+      font-weight: 900;
+    }
+    .repo-actions-large { margin-top: 0.35rem; }
+
+
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--color-border);
+      padding: 2.4rem 0;
+      background: #090d22;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr 0.8fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    .footer-grid p { max-width: 430px; margin-top: 1rem; font-size: 0.94rem; }
+    .footer-title { margin-bottom: 0.75rem; color: var(--color-text); font-weight: 900; }
+    .footer-links { display: grid; gap: 0.55rem; }
+    .footer-links a, .footer-links span { color: var(--color-text-muted); font-size: 0.94rem; }
+    .copyright { margin-top: 2rem; color: var(--color-text-muted); font-size: 0.9rem; }
+
+    /* Accessibility */
+    :focus-visible {
+      outline: 3px solid #ffffff;
+      outline-offset: 4px;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 500ms ease, transform 500ms ease;
+    }
+    .reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+    /* Responsive */
+    @media (max-width: 1040px) {
+      .two-col, .impact-layout, .contact-layout { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+      .workflow, .compatibility { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .problems-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .problem-card.large, .problem-card.wide { grid-column: auto; grid-row: auto; }
+    }
+
+    @media (max-width: 860px) {
+      html { scroll-padding-top: 82px; }
+      .container { width: min(100% - 32px, var(--container-width)); }
+      .menu-toggle { display: block; }
+      .nav-links {
+        position: fixed;
+        inset: 76px 16px auto 16px;
+        display: grid;
+        visibility: hidden;
+        opacity: 0;
+        transform: translateY(-8px);
+        border: 1px solid var(--color-border);
+        border-radius: 22px;
+        padding: 0.7rem;
+        background: rgba(13, 18, 43, 0.98);
+        box-shadow: var(--shadow-soft);
+        transition: opacity var(--transition-default), transform var(--transition-default), visibility var(--transition-default);
+      }
+      .nav-links.open { visibility: visible; opacity: 1; transform: translateY(0); }
+      .nav-links a { justify-content: center; border-radius: 14px; }
+      .nav-links a:hover, .nav-links a.active { background: rgba(255,255,255,0.06); }
+      .nav-actions .btn { display: none; }
+      .hero { padding-top: 3rem; }
+      .footer-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      section { padding: 4rem 0; }
+      .brand-mark { width: 184px; height: 52px; padding: 6px 12px; }
+      .hero-actions { align-items: stretch; flex-direction: column; }
+      .btn { width: 100%; }
+      .dashboard-grid, .problems-grid, .workflow, .compatibility { grid-template-columns: 1fr; }
+      .console-top { align-items: flex-start; flex-direction: column; }
+      .terminal-line { white-space: normal; }
+      .impact-panel { min-height: auto; }
+      .quote-band { min-height: 280px; }
+      .metric-card { min-height: auto; }
+      .contact-panel { padding: 1rem; }
+    }
+
+    @media (max-width: 380px) {
+      .container { width: min(100% - 28px, var(--container-width)); }
+      h1 { font-size: 2.15rem; }
+      h2 { font-size: 1.8rem; }
+      .status-pill { width: 100%; justify-content: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a class="brand" href="#top" aria-label="Ir para o início">
+        <span class="brand-mark">
+          <img src="src/img/logo_sem_fundo.png" width="1269" height="270" alt="Logo do SysDoctor">
+        </span>
+      </a>
+      <nav aria-label="Navegação principal">
+        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-menu">
+          <span></span>
+          <span class="sr-only">Abrir menu</span>
+        </button>
+        <div class="nav-links" id="primary-menu">
+          <a href="#problemas">Problemas</a>
+          <a href="#como-funciona">Como funciona</a>
+          <a href="#recursos">Recursos</a>
+          <a href="#compatibilidade">Compatibilidade</a>
+          <a href="#repositorio">Repositório</a>
+        </div>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-primary" href="#repositorio">Ver repositório</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="container grid two-col hero-content">
+        <div class="hero-copy reveal">
+          <span class="eyebrow">Diagnóstico e manutenção do Windows</span>
+          <h1 id="hero-title">Seu Windows está lento, instável ou cheio de sinais que ninguém explica?</h1>
+          <p class="lead">Antes de sair abrindo comandos, menus e programas diferentes, entenda o que pode estar acontecendo com o computador e organize a manutenção em um fluxo mais claro.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#problemas">
+              Ver problemas comuns
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <a class="btn btn-secondary" href="#repositorio">Ver código no GitHub</a>
+          </div>
+          <div class="compat-row" aria-label="Compatibilidade resumida">
+            <span class="status-pill"><span class="dot success"></span>Windows 10 ou superior</span>
+            <span class="status-pill"><span class="dot"></span>Ambiente 64 bits</span>
+            <span class="status-pill"><span class="dot warning"></span>Algumas ações exigem administrador</span>
+          </div>
+        </div>
+
+        <figure class="console-preview surface reveal" aria-label="Prévia ilustrativa da interface do SysDoctor">
+          <div class="console-top">
+            <div class="window-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span class="mono">Prévia ilustrativa · não escaneia este dispositivo</span>
+          </div>
+          <div class="console-body">
+            <div class="terminal-line"><span class="prompt">sysdoctor&gt;</span><span>iniciar diagnostico guiado</span></div>
+            <div class="terminal-line"><span class="prompt">status</span><span>centralizando verificações de sistema, rede e manutenção</span></div>
+            <div class="grid dashboard-grid">
+              <div class="metric-card">
+                <div class="metric-label"><span>Sistema operacional</span><span class="dot success" aria-label="verificado"></span></div>
+                <div class="metric-value">Verificação organizada</div>
+                <div class="meter" aria-hidden="true"><span style="width: 86%"></span></div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label"><span>Armazenamento</span><span class="dot warning" aria-label="atenção"></span></div>
+                <div class="metric-value">Análise de limpeza</div>
+                <div class="meter" aria-hidden="true"><span style="width: 62%"></span></div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label"><span>Rede</span><span class="dot success" aria-label="conectada"></span></div>
+                <div class="metric-value">Ping e latência</div>
+                <div class="meter" aria-hidden="true"><span style="width: 74%"></span></div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label"><span>Temperatura</span><span class="dot" aria-label="monitoramento"></span></div>
+                <div class="metric-value">Monitoramento ativo</div>
+                <div class="meter" aria-hidden="true"><span style="width: 48%"></span></div>
+              </div>
+            </div>
+            <p class="preview-note">Conteúdo visual demonstrativo. Os indicadores representam áreas que o SysDoctor ajuda a organizar, não resultados reais do navegador.</p>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Problems -->
+    <section class="problems" id="problemas" aria-labelledby="problems-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="eyebrow">Problemas comuns</span>
+          <h2 id="problems-title">Quando o Windows começa a falhar, o problema raramente aparece em um lugar só.</h2>
+          <p class="lead">Lentidão, arquivos temporários, Wi-Fi instável e erros de sistema costumam exigir várias ferramentas diferentes para uma análise mínima.</p>
+        </div>
+        <div class="grid problems-grid">
+          <article class="problem-card large reveal">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 13a8 8 0 1 1 16 0M12 13l4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 19h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <h3>Performance imprevisível</h3>
+            <p>Inicialização lenta, memória pressionada e tarefas simples demorando mais do que deveriam podem ter causas diferentes.</p>
+            <span class="status-pill card-tag"><span class="dot warning"></span>Exige diagnóstico antes de otimizar</span>
+          </article>
+          <article class="problem-card reveal">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7c0-2 4-3 8-3s8 1 8 3-4 3-8 3-8-1-8-3Zm0 0v10c0 2 4 3 8 3s8-1 8-3V7" stroke="currentColor" stroke-width="2"/><path d="M4 12c0 2 4 3 8 3s8-1 8-3" stroke="currentColor" stroke-width="2"/></svg></div>
+            <h3>Espaço ocupado</h3>
+            <p>Arquivos temporários, caches e sobras de uso diário dificultam entender o que realmente pode ser limpo.</p>
+            <span class="status-pill card-tag"><span class="dot"></span>Limpeza assistida</span>
+          </article>
+          <article class="problem-card reveal">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M2 8.8a16 16 0 0 1 20 0M5.5 12.3a10.5 10.5 0 0 1 13 0M9 15.8a5 5 0 0 1 6 0M12 20h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <h3>Rede instável</h3>
+            <p>Latência alta, DNS confuso e Wi-Fi irregular desperdiçam tempo em jogos, aulas, trabalho e suporte remoto.</p>
+            <span class="status-pill card-tag"><span class="dot warning"></span>Ping, cache e Wi-Fi</span>
+          </article>
+          <article class="problem-card wide reveal">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 20 6v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3Z" stroke="currentColor" stroke-width="2"/><path d="m9 12 2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3>Segurança e manutenção espalhadas</h3>
+            <p>Verificar Windows Defender, atualizações, integridade do sistema e ponto de restauração costuma envolver telas e comandos desconectados.</p>
+            <span class="status-pill card-tag"><span class="dot success"></span>Mais visibilidade, menos troca de contexto</span>
+          </article>
+          <article class="problem-card reveal">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v10H4zM8 19h8M10 15v4m4-4v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <h3>Informação difícil de encontrar</h3>
+            <p>Dados de hardware, sistema, conexões ativas e temperatura ficam dispersos quando você precisa decidir o próximo passo.</p>
+            <span class="status-pill card-tag"><span class="dot"></span>Diagnóstico centralizado</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Consequences -->
+    <section id="consequencias" aria-labelledby="consequences-title">
+      <div class="container grid impact-layout">
+        <div class="impact-panel reveal">
+          <div>
+            <span class="eyebrow">Consequências</span>
+            <h2 id="consequences-title">Ignorar sinais do sistema aumenta a incerteza.</h2>
+            <p class="lead">Nem todo alerta vira um problema grave, mas a falta de visibilidade atrasa decisões e torna a manutenção mais trabalhosa.</p>
+          </div>
+          <div class="impact-list">
+            <div class="impact-item">
+              <span class="impact-number">1</span>
+              <div><strong>Mais tempo perdido</strong><p>Você alterna entre configurações, PowerShell, ferramentas do Windows e aplicativos separados.</p></div>
+            </div>
+            <div class="impact-item">
+              <span class="impact-number">2</span>
+              <div><strong>Menos clareza técnica</strong><p>Sem um roteiro, fica difícil separar lentidão, rede, armazenamento e integridade do sistema.</p></div>
+            </div>
+            <div class="impact-item">
+              <span class="impact-number">3</span>
+              <div><strong>Manutenção menos consistente</strong><p>Após formatar ou configurar máquinas, repetir tarefas manuais aumenta a chance de esquecer etapas úteis.</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="quote-band reveal">
+          <span class="status-pill"><span class="dot success"></span>Necessidade real</span>
+          <p>Cuidar do Windows não deveria exigir dezenas de caminhos diferentes para executar tarefas que fazem parte da mesma rotina.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Solution -->
+    <section id="como-funciona" aria-labelledby="solution-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="eyebrow">SysDoctor</span>
+          <h2 id="solution-title">Uma central prática para diagnosticar, limpar, configurar e cuidar do seu Windows.</h2>
+          <p class="lead">O SysDoctor organiza utilitários de diagnóstico, manutenção, rede, segurança e otimização em uma interface interativa de console, com feedback claro durante a execução.</p>
+        </div>
+        <div class="grid workflow">
+          <article class="step-card reveal" data-step="1">
+            <h3>Abra o SysDoctor</h3>
+            <p>Execute a ferramenta em um ambiente Windows compatível. Ela pode abrir com permissões padrão.</p>
+          </article>
+          <article class="step-card reveal" data-step="2">
+            <h3>Escolha a ferramenta</h3>
+            <p>Selecione diagnóstico, limpeza, rede, segurança, atualizações ou configuração pós-instalação.</p>
+          </article>
+          <article class="step-card reveal" data-step="3">
+            <h3>Acompanhe o processo</h3>
+            <p>A interface exibe progresso, mensagens compreensíveis e orientações quando permissões elevadas forem necessárias.</p>
+          </article>
+          <article class="step-card reveal" data-step="4">
+            <h3>Receba o resultado</h3>
+            <p>Mesmo que uma tarefa individual falhe, o fluxo pode continuar e informar o que aconteceu.</p>
+          </article>
+        </div>
+        <div class="solution-panel reveal">
+          <ul class="menu-sim" aria-label="Exemplo de organização das ferramentas">
+            <li><strong>Diagnóstico do sistema</strong><span>hardware, Windows e integridade</span></li>
+            <li><strong>Limpeza e desempenho</strong><span>disco, RAM, cache e otimizações comuns</span></li>
+            <li><strong>Rede e conectividade</strong><span>ping, latência, Wi-Fi e conexões ativas</span></li>
+            <li><strong>Manutenção preventiva</strong><span>restauração, atualizações, Defender e pós-formatação</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="recursos" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="eyebrow">Recursos</span>
+          <h2 id="features-title">Ferramentas agrupadas pelo tipo de manutenção que você precisa fazer.</h2>
+          <p class="lead">Em vez de uma lista extensa de botões, o SysDoctor organiza funções por contexto para facilitar a escolha do próximo passo.</p>
+        </div>
+        <div class="grid features-grid">
+          <article class="feature-group reveal">
+            <h3>Diagnóstico</h3>
+            <p>Mais informações para entender o estado do computador antes de aplicar correções ou otimizações.</p>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Informações da máquina e do sistema operacional.</span></li>
+              <li><span class="check">✓</span><span>Verificação de integridade do Windows.</span></li>
+              <li><span class="check">✓</span><span>Monitoramento de temperatura do processador, quando disponível.</span></li>
+              <li><span class="check">✓</span><span>Teste de velocidade, ping, latência e conexões ativas.</span></li>
+            </ul>
+          </article>
+          <article class="feature-group reveal">
+            <h3>Limpeza e desempenho</h3>
+            <p>Rotinas úteis para liberar recursos, remover excessos e aplicar ajustes comuns com mais organização.</p>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Limpeza de SSDs, discos rígidos e arquivos temporários.</span></li>
+              <li><span class="check">✓</span><span>Limpeza de RAM para auxiliar a manutenção em cenários específicos.</span></li>
+              <li><span class="check">✓</span><span>Otimização do Windows, cache de rede, ping e Wi-Fi.</span></li>
+              <li><span class="check">✓</span><span>Feedback visual para acompanhar a execução das tarefas.</span></li>
+            </ul>
+          </article>
+          <article class="feature-group reveal">
+            <h3>Manutenção e segurança</h3>
+            <p>Controles para reduzir esquecimentos em rotinas de suporte, pós-formatação e verificação básica.</p>
+            <ul class="feature-list">
+              <li><span class="check">✓</span><span>Criação de ponto de restauração do sistema.</span></li>
+              <li><span class="check">✓</span><span>Assistência para Windows Update e verificação com Windows Defender.</span></li>
+              <li><span class="check">✓</span><span>Configuração pós-instalação para computadores recém-formatados.</span></li>
+              <li><span class="check">✓</span><span>Instalação e gerenciamento de programas úteis.</span></li>
+            </ul>
+          </article>
+        </div>
+
+        <div id="compatibilidade" class="section-header compat-header reveal">
+          <span class="eyebrow">Compatibilidade</span>
+          <h2>Preparado para ambientes Windows modernos.</h2>
+          <p class="lead">Os requisitos abaixo ajudam a deixar claro onde o SysDoctor foi pensado para operar.</p>
+        </div>
+        <div class="grid compatibility reveal" aria-label="Requisitos técnicos">
+          <div class="compat-card"><strong>Windows</strong><span>10 ou superior</span></div>
+          <div class="compat-card"><strong>.NET</strong><span>10.0 ou superior</span></div>
+          <div class="compat-card"><strong>PowerShell</strong><span>5.1 ou superior</span></div>
+          <div class="compat-card"><strong>Runtime</strong><span>win-x64</span></div>
+        </div>
+        <p class="permission-note reveal">O SysDoctor pode abrir com permissões padrão, mas algumas ferramentas avançadas de manutenção podem solicitar acesso de administrador. A interface deve indicar quando isso for necessário.</p>
+      </div>
+    </section>
+
+    <!-- Repository -->
+    <section class="contact" id="repositorio" aria-labelledby="contact-title">
+      <div class="container grid contact-layout">
+        <div class="contact-panel reveal">
+          <span class="eyebrow">Código aberto</span>
+          <h2 id="contact-title">SysDoctor é código aberto. Veja o projeto no GitHub.</h2>
+          <p class="lead">Acompanhe o desenvolvimento, leia o código, abra issues no GitHub, sugira melhorias ou contribua diretamente pelo repositório oficial.</p>
+          <ul class="contact-points">
+            <li><span class="check">✓</span><span>Repositório público para acompanhar o código e a evolução do SysDoctor.</span></li>
+            <li><span class="check">✓</span><span>Issues e sugestões ajudam a priorizar correções, melhorias e novos recursos.</span></li>
+            <li><span class="check">✓</span><span>Contribuições podem apoiar usuários, técnicos e equipes que mantêm computadores Windows.</span></li>
+          </ul>
+          <div class="repo-card">
+            <strong>Repositório oficial</strong>
+            <span class="repo-url">github.com/Bert00100/SysDoctor</span>
+            <div class="repo-actions">
+              <a class="btn btn-primary" href="https://github.com/Bert00100/SysDoctor" target="_blank" rel="noopener noreferrer">Abrir no GitHub</a>
+              <a class="btn btn-secondary" href="https://github.com/Bert00100/SysDoctor/issues" target="_blank" rel="noopener noreferrer">Ver issues</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="contact-panel reveal repo-download-panel">
+          <span class="status-pill"><span class="dot success"></span>Gratuito e open source</span>
+          <h3>Baixe e acompanhe pelo GitHub</h3>
+          <p>O SysDoctor não exige cadastro nesta página. Acesse o repositório oficial para baixar, revisar o código, acompanhar versões e abrir sugestões.</p>
+          <div class="repo-steps" aria-label="Como acessar o SysDoctor pelo GitHub">
+            <div><strong>1</strong><span>Abra o repositório oficial.</span></div>
+            <div><strong>2</strong><span>Leia as instruções disponíveis no projeto.</span></div>
+            <div><strong>3</strong><span>Baixe pelo GitHub quando houver versão publicada.</span></div>
+          </div>
+          <div class="repo-actions repo-actions-large">
+            <a class="btn btn-primary" href="https://github.com/Bert00100/SysDoctor" target="_blank" rel="noopener noreferrer">Baixar no GitHub</a>
+            <a class="btn btn-secondary" href="https://github.com/Bert00100/SysDoctor/issues" target="_blank" rel="noopener noreferrer">Sugerir melhoria</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a class="brand" href="#top" aria-label="Ir para o início">
+            <span class="brand-mark"><img src="src/img/logo_sem_fundo.png" width="1269" height="270" alt="Logo do SysDoctor"></span>
+          </a>
+          <p>SysDoctor é uma central de ferramentas para diagnóstico, limpeza, manutenção e configuração de computadores Windows.</p>
+        </div>
+        <div>
+          <div class="footer-title">Navegação</div>
+          <div class="footer-links">
+            <a href="#problemas">Problemas</a>
+            <a href="#como-funciona">Como funciona</a>
+            <a href="#recursos">Recursos</a>
+            <a href="#compatibilidade">Compatibilidade</a>
+            <a href="#repositorio">Repositório</a>
+          </div>
+        </div>
+        <div>
+          <div class="footer-title">Ambiente</div>
+          <div class="footer-links">
+            <span>Windows 10 ou superior</span>
+            <span>.NET 10.0 ou superior</span>
+            <span>PowerShell 5.1 ou superior</span>
+            <span>win-x64</span>
+          </div>
+        </div>
+      </div>
+      <p class="copyright">© <span id="current-year"></span> SysDoctor. Projeto de código aberto disponível no repositório oficial.</p>
+    </div>
+  </footer>
+
+  <script>
+    const menuButton = document.querySelector(".menu-toggle");
+    const menu = document.getElementById("primary-menu");
+    const navLinks = Array.from(document.querySelectorAll(".nav-links a"));
+    const sections = navLinks
+      .map((link) => document.querySelector(link.getAttribute("href")))
+      .filter(Boolean);
+
+    function closeMenu() {
+      menu.classList.remove("open");
+      menuButton.setAttribute("aria-expanded", "false");
+      document.body.classList.remove("menu-open");
+    }
+
+    menuButton.addEventListener("click", () => {
+      const expanded = menuButton.getAttribute("aria-expanded") === "true";
+      menuButton.setAttribute("aria-expanded", String(!expanded));
+      menu.classList.toggle("open", !expanded);
+      document.body.classList.toggle("menu-open", !expanded);
+    });
+
+    navLinks.forEach((link) => {
+      link.addEventListener("click", () => closeMenu());
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeMenu();
+    });
+
+    const navObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        navLinks.forEach((link) => {
+          link.classList.toggle("active", link.getAttribute("href") === `#${entry.target.id}`);
+        });
+      });
+    }, { rootMargin: "-40% 0px -50% 0px", threshold: 0.01 });
+
+    sections.forEach((section) => navObserver.observe(section));
+
+    const revealItems = document.querySelectorAll(".reveal");
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    revealItems.forEach((item) => revealObserver.observe(item));
+
+    document.getElementById("current-year").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
